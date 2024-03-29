@@ -5,7 +5,7 @@
 #include <mutex>
 #include <queue>
 #include <functional>
-
+#include <future>
 
 
 namespace ThreadPool {
@@ -18,6 +18,13 @@ namespace ThreadPool {
 			std::vector<std::thread> workers;
 			std::condition_variable AccessNoti;
 			bool shutdown;
+			~ThreadPool() {
+				shutdown = true;
+				AccessNoti.notify_all();
+				for (size_t i = 0; i < workers.size(); i++) {
+					workers[i].join();
+				}
+			}
 			void worker() {
 				while (!shutdown) {
 					using namespace std;
@@ -32,6 +39,26 @@ namespace ThreadPool {
 					work();
 				}
 			}
+			void readyWorks() {
+				workers.reserve(limit);
+				for (size_t i = 0; i < workers.size(); i++) {
+					workers.push_back(std::thread(ThreadPool::worker));
+				}
+			}
+			ThreadPool() : shutdown(false),limit(std::thread::hardware_concurrency()) {
+				readyWorks();
+			}
+			ThreadPool(size_t size) : limit(size),shutdown(false) {
+				readyWorks();
+			}
+			/*
+			template은 extern "C"와 함께 사용하지 못한다.
+			맹글링을 사용하지 못하기 때문이다.
+			template<typename T,typename... args>
+			std::future<std::invoke_result_t<T, args>> push() {
+
+			}
+			*/
 		};
 	}
 }
