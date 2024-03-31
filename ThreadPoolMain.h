@@ -1,6 +1,4 @@
 #pragma once
 namespace ThreadPool {
-	void ThreadMain() {
-
-	}
+	void ThreadMain();
 }
