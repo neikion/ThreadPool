@@ -438,3 +438,4 @@ FodyWeavers.xsd
 #MyIgnore
 *.sln
 *.vcxproj
+ChangeLog/
