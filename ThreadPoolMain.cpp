@@ -6,22 +6,23 @@
 #include <queue>
 #include <functional>
 #include <future>
-
+#ifdef _DEBUG
+#include<iostream>
+#endif // _DEBUG
 namespace ThreadPool {
 
 	class ThreadPool {
-	public:
+	private:
 		std::mutex AccessJob;
 		std::queue<std::function<void()>> works;
 		size_t limit;
 		std::vector<std::thread> workers;
 		std::condition_variable AccessNoti;
 		bool shutdown;
-		~ThreadPool() {
-			shutdown = true;
-			AccessNoti.notify_all();
-			for (size_t i = 0; i < workers.size(); i++) {
-				workers[i].join();
+		void readyWorks() {
+			workers.reserve(limit);
+			for (size_t i = 0; i < limit; i++) {
+				workers.push_back(std::thread(&ThreadPool::worker, this));
 			}
 		}
 		void worker() {
@@ -38,30 +39,48 @@ namespace ThreadPool {
 				work();
 			}
 		}
-		void readyWorks() {
-			workers.reserve(limit);
+	public:
+		~ThreadPool() {
+			shutdown = true;
+			AccessNoti.notify_all();
 			for (size_t i = 0; i < workers.size(); i++) {
-				workers.push_back(std::thread(&ThreadPool::worker,this));
+				workers[i].join();
 			}
 		}
-		ThreadPool() : shutdown(false), limit(std::thread::hardware_concurrency()) {
-			readyWorks();
-		}
+		ThreadPool() : ThreadPool(static_cast<size_t>(std::thread::hardware_concurrency())) {}
 		ThreadPool(size_t size) : limit(size), shutdown(false) {
 			readyWorks();
 		}
-		//extern "C"를 사용하기 위해서는
-		//push_void_intArg1(void (*work)(), int arg1);
-		//과 같이 정확한 타입을 명시해줘야한다.(C에서는 함수 오버로드가 안된다.)
-		template<typename T,typename... args>
-		std::future<std::invoke_result_t<T, args...>> push(T work,args... value) {
-			
+		
+		template<typename T,typename... args,typename R=std::invoke_result_t<T,args...>>
+		std::future<R> push(T work,args... value) {
+			if (shutdown) {
+				throw std::exception("already shutdown");
+			}
+			std::shared_ptr<std::packaged_task<R()>> task = std::make_shared<std::packaged_task<R()>>(
+				std::bind(std::forward<T>(work),std::forward<args>(value)...)
+				
+			);
+			std::future<R> result = task->get_future();
+			{
+				std::lock_guard<std::mutex> lg(AccessJob);
+				works.push(
+					[task]
+					{
+						(*task)();
+					}
+				);
+			}
+			AccessNoti.notify_one();
+			return result;
 		}
-
-
 	};
-
+#ifdef _DEBUG
 	void ThreadMain() {
+		ThreadPool tp;
+		std::future<void> re=tp.push([] ()->void {std::cout << "test" << std::endl; });
+		re.get();
 
 	}
+#endif // _DEBUG
 }
