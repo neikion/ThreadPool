@@ -59,19 +59,21 @@ namespace ThreadPool {
 			if (shutdown) {
 				throw std::exception("already shutdown");
 			}
-			//std::shared_ptr<std::promise<R>> pro = std::make_shared << std::promise<R >> ();
 
-			std::shared_ptr<std::packaged_task<R()>> task = std::make_shared<std::packaged_task<R()>>(
-				//rvalue도 함수 안에서는 다시 lvalue가 되므로 참조로 캡쳐 후, 함수 내부에서 rvalue로 바꿔준다.
-				[w = std::forward<T>(work), &value...] () mutable {w(std::forward<args...>(value...)); }
-			);
-			std::future<R> result = task->get_future();
+			std::shared_ptr<std::promise<R>> pro = std::make_shared<std::promise<R>>();
+			std::future<R> result = pro->get_future();
 			{
 				std::lock_guard<std::mutex> lg(AccessJob);
 				works.push(
-					[task]
+					//rvalue도 함수 안에서는 다시 lvalue가 되므로 참조로 캡쳐 후, 함수 내부에서 rvalue로 바꿔준다.
+					[pro, w = std::forward<T>(work), &value...]() mutable
 					{
-						(*task)();
+						try {
+							pro->set_value(w(std::forward<args...>(value...)));
+						}
+						catch (...) {
+							pro->set_exception(std::current_exception());
+						}
 					}
 				);
 			}
@@ -86,10 +88,10 @@ namespace ThreadPool {
 		testclass() :value(1) {
 			std::cout << "default" << std::endl;
 		}
-		testclass(const testclass& value) : testclass() {
+		testclass(const testclass& value) : value(2) {
 			std::cout << "cons" << std::endl;
 		}
-		testclass(const testclass&& value) noexcept :testclass()  {
+		testclass(const testclass&& value) noexcept : value(3) {
 			std::cout << "rvalue cons" << std::endl;
 		}
 		testclass& operator=(testclass& value) {
@@ -104,17 +106,15 @@ namespace ThreadPool {
 	void ThreadMain() {
 		
 		ThreadPool tp;
-		testclass a,b;
-		//void는 되나 다른 반환형이 있는 경우 안된다.
+		testclass a;
+
 		std::future<testclass> re = tp.push([](testclass&& value) ->testclass
 			{
 				std::this_thread::sleep_for(std::chrono::seconds(1));
 				std::cout << value.value << std::endl;
 				return value;
-			}, testclass());
+			}, std::move(a));
 		re.get();
-		//std::cout << re.get().value << std::endl;
-
 	}
 #endif // _DEBUG
 }
