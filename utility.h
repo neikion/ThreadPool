@@ -1,7 +1,7 @@
 #pragma once
 #ifdef ThreaPoolLibrary
-#define ThreadPoolexport __declspec(dllexport)
+#define ThreadPoolAPI __declspec(dllexport)
 #else
-#define ThreadPoolimport __declspec(dllimport)
+#define ThreadPoolAPI __declspec(dllimport)
 #endif // !1
 
