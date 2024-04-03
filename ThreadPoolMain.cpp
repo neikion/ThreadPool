@@ -8,6 +8,7 @@
 #include <future>
 #ifdef _DEBUG
 #include<iostream>
+#include<chrono>
 #endif // _DEBUG
 namespace ThreadPool {
 
@@ -39,6 +40,7 @@ namespace ThreadPool {
 				work();
 			}
 		}
+
 	public:
 		~ThreadPool() {
 			shutdown = true;
@@ -53,13 +55,15 @@ namespace ThreadPool {
 		}
 		
 		template<typename T,typename... args,typename R=std::invoke_result_t<T,args...>>
-		std::future<R> push(T work,args... value) {
+		std::future<R> push(T&& work,args&&... value) {
 			if (shutdown) {
 				throw std::exception("already shutdown");
 			}
+			//std::shared_ptr<std::promise<R>> pro = std::make_shared << std::promise<R >> ();
+
 			std::shared_ptr<std::packaged_task<R()>> task = std::make_shared<std::packaged_task<R()>>(
-				std::bind(std::forward<T>(work),std::forward<args>(value)...)
-				
+				//rvalue도 함수 안에서는 다시 lvalue가 되므로 참조로 캡쳐 후, 함수 내부에서 rvalue로 바꿔준다.
+				[w = std::forward<T>(work), &value...] () mutable {w(std::forward<args...>(value...)); }
 			);
 			std::future<R> result = task->get_future();
 			{
@@ -76,10 +80,40 @@ namespace ThreadPool {
 		}
 	};
 #ifdef _DEBUG
+	class testclass {
+	public:
+		int value;
+		testclass() :value(1) {
+			std::cout << "default" << std::endl;
+		}
+		testclass(const testclass& value) : testclass() {
+			std::cout << "cons" << std::endl;
+		}
+		testclass(const testclass&& value) noexcept :testclass()  {
+			std::cout << "rvalue cons" << std::endl;
+		}
+		testclass& operator=(testclass& value) {
+			std::cout << "= lvalue" << std::endl;
+			return *this;
+		}
+		testclass& operator=(testclass&& value) noexcept {
+			std::cout << "= rvalue" << std::endl;
+			return *this;
+		}
+	};
 	void ThreadMain() {
+		
 		ThreadPool tp;
-		std::future<void> re=tp.push([] ()->void {std::cout << "test" << std::endl; });
+		testclass a,b;
+		//void는 되나 다른 반환형이 있는 경우 안된다.
+		std::future<testclass> re = tp.push([](testclass&& value) ->testclass
+			{
+				std::this_thread::sleep_for(std::chrono::seconds(1));
+				std::cout << value.value << std::endl;
+				return value;
+			}, testclass());
 		re.get();
+		//std::cout << re.get().value << std::endl;
 
 	}
 #endif // _DEBUG
