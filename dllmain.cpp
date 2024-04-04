@@ -2,10 +2,13 @@
 //#include "pch.h"
 //
 #include "ThreadPoolMain.h"
+#ifdef _DEBUG
+#include "test/test.h"
+#endif // _DEBUG
 
 #ifdef _DEBUG
 int main() {
-	ThreadPool::ThreadMain();
+	ThreadPoolTest::ThreadMain();
 	return 0;
 }
 #endif

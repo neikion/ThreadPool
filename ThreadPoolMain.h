@@ -1,4 +1,3 @@
-#pragma once
 #include <vector>
 #include <atomic>
 #include <thread>
@@ -6,10 +5,7 @@
 #include <queue>
 #include <functional>
 #include <future>
-namespace ThreadPool {
-#ifdef _DEBUG
-	void ThreadMain();
-#endif // _DEBUG
+namespace ThreadPoolSpace {
 	class ThreadPool {
 	private:
 		std::mutex AccessJob;
@@ -64,6 +60,7 @@ namespace ThreadPool {
 				std::lock_guard<std::mutex> lg(AccessJob);
 				works.push(
 					//rvalue도 함수 안에서는 다시 lvalue가 되므로 참조로 캡쳐 후, 함수 내부에서 rvalue로 바꿔준다.
+					//... args1=std::move(value)
 					[pro, w = std::forward<T>(work), &value...]() mutable
 					{
 						try {

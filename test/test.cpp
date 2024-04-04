@@ -1,10 +1,8 @@
-#include "../ThreadPoolMain.h"
-#ifdef _DEBUG
+#include "test.h"
 #include<iostream>
 #include<chrono>
-#endif // _DEBUG
-namespace ThreadPool {
-#ifdef _DEBUG
+using namespace ThreadPoolSpace;
+namespace ThreadPoolTest {
 	class testclass {
 	public:
 		int value;
@@ -27,7 +25,7 @@ namespace ThreadPool {
 		}
 	};
 	void ThreadMain() {
-		
+
 		ThreadPool tp;
 		testclass a;
 
@@ -37,7 +35,7 @@ namespace ThreadPool {
 				std::cout << value.value << std::endl;
 			}, std::move(a));
 		result1.get();
-		
+
 		std::cout << std::endl;
 		testclass b;
 		std::future<void> result2 = tp.push([](testclass& value) ->void
@@ -47,5 +45,4 @@ namespace ThreadPool {
 			}, b);
 		result2.get();
 	}
-#endif // _DEBUG
 }
