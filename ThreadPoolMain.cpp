@@ -69,7 +69,16 @@ namespace ThreadPool {
 					[pro, w = std::forward<T>(work), &value...]() mutable
 					{
 						try {
-							pro->set_value(w(std::forward<args...>(value...)));
+							if constexpr (std::is_same_v<R, void>) {
+								w(std::forward<args...>(value...));
+								//w(std::forward<args...>(args1...));
+								pro->set_value();
+							}
+							else {
+								pro->set_value(w(std::forward<args...>(value...)));
+								//pro->set_value(w(std::forward<args...>(args1...)));
+
+							}
 						}
 						catch (...) {
 							pro->set_exception(std::current_exception());
@@ -89,10 +98,10 @@ namespace ThreadPool {
 			std::cout << "default" << std::endl;
 		}
 		testclass(const testclass& value) : value(2) {
-			std::cout << "cons" << std::endl;
+			std::cout << "copy cons" << std::endl;
 		}
 		testclass(const testclass&& value) noexcept : value(3) {
-			std::cout << "rvalue cons" << std::endl;
+			std::cout << "move cons" << std::endl;
 		}
 		testclass& operator=(testclass& value) {
 			std::cout << "= lvalue" << std::endl;
@@ -108,13 +117,21 @@ namespace ThreadPool {
 		ThreadPool tp;
 		testclass a;
 
-		std::future<testclass> re = tp.push([](testclass&& value) ->testclass
+		std::future<void> result1 = tp.push([](testclass&& value) ->void
 			{
 				std::this_thread::sleep_for(std::chrono::seconds(1));
 				std::cout << value.value << std::endl;
-				return value;
 			}, std::move(a));
-		re.get();
+		result1.get();
+		
+		std::cout << std::endl;
+		testclass b;
+		std::future<void> result2 = tp.push([](testclass& value) ->void
+			{
+				std::this_thread::sleep_for(std::chrono::seconds(1));
+				std::cout << value.value << std::endl;
+			}, b);
+		result2.get();
 	}
 #endif // _DEBUG
 }
