@@ -54,26 +54,21 @@ namespace ThreadPoolSpace {
 			if (shutdown) {
 				throw std::exception("already shutdown");
 			}
-
 			std::shared_ptr<std::promise<R>> pro = std::make_shared<std::promise<R>>();
 			std::future<R> result = pro->get_future();
 			{
 				std::lock_guard<std::mutex> lg(AccessJob);
 				works.push(
 					//rvalue도 함수 안에서는 다시 lvalue가 되므로 참조로 캡쳐 후, 함수 내부에서 rvalue로 바꿔준다.
-					//... args1=std::move(value)
 					[pro, w = std::forward<T>(work), &value...]() mutable
 					{
 						try {
-							if constexpr (std::is_same_v<R, void>) {
-								w(std::forward<args...>(value...));
-								//w(std::forward<args...>(args1...));
+							if constexpr (std::is_void_v<R>) {
+								w(std::forward<args>(value)...);
 								pro->set_value();
 							}
 							else {
-								pro->set_value(w(std::forward<args...>(value...)));
-								//pro->set_value(w(std::forward<args...>(args1...)));
-
+								pro->set_value(w(std::forward<args>(value)...));
 							}
 						}
 						catch (...) {
