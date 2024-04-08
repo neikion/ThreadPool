@@ -37,6 +37,12 @@ namespace ThreadPoolSpace {
 		}
 
 	public:
+		//ThreadPool is not copyable and moveable
+		ThreadPool(const ThreadPool&) = delete;
+		ThreadPool(ThreadPool&&) = delete;
+		ThreadPool& operator=(const ThreadPool&) = delete;
+		ThreadPool& operator=(ThreadPool&&) = delete;
+
 		~ThreadPool() {
 			shutdown = true;
 			AccessNoti.notify_all();
